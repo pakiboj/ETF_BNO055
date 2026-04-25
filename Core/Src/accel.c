@@ -2,6 +2,7 @@
 #include "stm32l4xx_ll_i2c.h"
 #include "bno055.h"
 #include "accel.h"
+
 /*
 //uint8_t Mscale 	= MFS_4Gauss;		// Select magnetometer full-scale resolution
 uint8_t MOpMode 	= EnhancedRegular;    	// Select magnetometer perfomance mode
@@ -42,22 +43,21 @@ const char read_calib[2] 	= {REG_READ, BNO055_REG_CALIB_STAT};
 const char reset_sensor[3]	= {REG_WRITE, BNO055_REG_SYS_TRIGGER, 0x01 << 5};
 uint8_t get_readings[1] 	= {BNO055_REG_ACC_DATA_X_LSB};
 
-
 // Configure BNO sensor
 void BNO055_Init_I2C(I2C_HandleTypeDef* hi2c_device) {
 	// Select BNO055 config mode
 	uint8_t opr_config_mode[2] = {BNO055_REG_OPR_MODE, BNO055_MODE_CONFIG};
-	HAL_I2C_Master_Transmit(hi2c_device, BNO055_I2C_ADDR_HI<<1, opr_config_mode, sizeof(opr_config_mode), 10);
+	HAL_I2C_Master_Transmit(hi2c_device, BNO055_I2C_ADDR_LO<<1, opr_config_mode, sizeof(opr_config_mode), 10);
 	HAL_Delay(10);
 
 	// Select page 1 to configure sensors
 	uint8_t conf_page1[2] = {BNO055_REG_PAGE_ID, 0x01};
-	HAL_I2C_Master_Transmit(hi2c_device, BNO055_I2C_ADDR_HI<<1, conf_page1, sizeof(conf_page1), 10);
+	HAL_I2C_Master_Transmit(hi2c_device, BNO055_I2C_ADDR_LO<<1, conf_page1, sizeof(conf_page1), 10);
 	HAL_Delay(10);
 
 	// Configure ACC (Page 1; 0x08)
 	uint8_t conf_acc[2] = {BNO055_REG_ACC_CONFIG, APwrMode << 5 | Abw << 2 | Ascale};
-	HAL_I2C_Master_Transmit(hi2c_device, BNO055_I2C_ADDR_HI<<1, conf_acc, sizeof(conf_acc), 10);
+	HAL_I2C_Master_Transmit(hi2c_device, BNO055_I2C_ADDR_LO<<1, conf_acc, sizeof(conf_acc), 10);
 	HAL_Delay(10);
 	/*
 	// Configure GYR
@@ -79,7 +79,7 @@ void BNO055_Init_I2C(I2C_HandleTypeDef* hi2c_device) {
 	
 	// Select page 0
 	uint8_t conf_page0[2] = {BNO055_REG_PAGE_ID, 0x00};
-	HAL_I2C_Master_Transmit(hi2c_device, BNO055_I2C_ADDR_HI<<1, conf_page0, sizeof(conf_page0), 10);
+	HAL_I2C_Master_Transmit(hi2c_device, BNO055_I2C_ADDR_LO<<1, conf_page0, sizeof(conf_page0), 10);
 	HAL_Delay(10);
 
 	// Select BNO055 sensor units (Page 0; 0x3B, default value 0x80)
@@ -97,12 +97,46 @@ void BNO055_Init_I2C(I2C_HandleTypeDef* hi2c_device) {
 
 	// Select BNO055 system power mode (Page 0; 0x3E)
 	uint8_t pwr_pwrmode[2] = {BNO055_REG_PWR_MODE, PWRMode};
-	HAL_I2C_Master_Transmit(hi2c_device, BNO055_I2C_ADDR_HI<<1, pwr_pwrmode, sizeof(pwr_pwrmode), 10);
+	HAL_I2C_Master_Transmit(hi2c_device, BNO055_I2C_ADDR_LO<<1, pwr_pwrmode, sizeof(pwr_pwrmode), 10);
 	HAL_Delay(10);
 
 	// Select BNO055 system operation mode (Page 0; 0x3D)
 	uint8_t opr_oprmode[2] = {BNO055_REG_OPR_MODE, OPRMode};
-	HAL_I2C_Master_Transmit(hi2c_device, BNO055_I2C_ADDR_HI<<1, opr_oprmode, sizeof(opr_oprmode), 10);
+	HAL_I2C_Master_Transmit(hi2c_device, BNO055_I2C_ADDR_LO<<1, opr_oprmode, sizeof(opr_oprmode), 10);
 	HAL_Delay(50);
+}
+// Send data to BNO055 over I2C
+uint8_t GetAccelData(I2C_HandleTypeDef* hi2c_device, uint8_t* str) {
+	uint8_t status;
+	status = HAL_I2C_Mem_Read(hi2c_device, BNO055_I2C_ADDR_LO<<1, BNO055_REG_ACC_DATA_X_LSB, I2C_MEMADD_SIZE_8BIT, str, IMU_NUMBER_OF_BYTES,100);
+  //while (HAL_I2C_GetState(hi2c_device) != HAL_I2C_STATE_READY) {}
+	return status;
+}
+// TBD
+uint8_t GetAccelChipId(I2C_HandleTypeDef* hi2c_device, uint8_t *chip_id) {
+	return HAL_I2C_Mem_Read(hi2c_device, BNO055_I2C_ADDR_LO<<1, BNO055_REG_CHIP_ID, I2C_MEMADD_SIZE_8BIT, chip_id, 1, 100);
+}
+// TBD
+uint8_t GetAccelTemp(I2C_HandleTypeDef* hi2c_device) {
+	uint8_t temp;
+	HAL_I2C_Mem_Read_DMA(hi2c_device, BNO055_I2C_ADDR_LO<<1, BNO055_TEMP, I2C_MEMADD_SIZE_8BIT, &temp, 1);
+	while (HAL_I2C_GetState(hi2c_device) != HAL_I2C_STATE_READY) {}
+	return temp;
+}
+
+// Get IMU calibration values
+uint8_t BNO055_Get_Calibration(I2C_HandleTypeDef* hi2c_device) {
+	uint8_t calibration;
+	HAL_I2C_Mem_Read_DMA(hi2c_device, BNO055_I2C_ADDR_LO<<1, BNO055_REG_CALIB_STAT, I2C_MEMADD_SIZE_8BIT, &calibration, 1);
+	while (HAL_I2C_GetState(hi2c_device) != HAL_I2C_STATE_READY);
+	return calibration;
+}
+
+// Calculate IMU calibration values
+void BNO055_Calc_Calibration(uint8_t calibration, uint8_t *cal_system, uint8_t *cal_gyro, uint8_t *cal_acc, uint8_t *cal_mag) {
+	*cal_system = (calibration >> 6) & 0x03;
+	*cal_gyro 	= (calibration >> 4) & 0x03;
+	*cal_acc 		= (calibration >> 2) & 0x03;
+	*cal_mag 		= (calibration) & 0x03;
 }
 

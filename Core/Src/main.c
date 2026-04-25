@@ -26,6 +26,7 @@
 #include "stm32l4xx_ll_i2c.h"
 #include "bno055.h"
 #include "accel.h"
+#include "MQTT.h"
 
 /* USER CODE END Includes */
 
@@ -61,7 +62,7 @@ static void MX_I2C1_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
-
+void I2C_scan(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -79,6 +80,19 @@ int _write(int fd, char* ptr, int len) {
   }
   return -1;
 }
+
+void I2C_scan(void)
+{
+    for (uint8_t i = 0; i < 128; i++) {
+        if (HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t)(i<<1), 3, 5) == HAL_OK) {
+            printf("%2x ", i);
+        } else {
+            printf("-- ");
+        }
+        if (i > 0 && (i + 1) % 16 == 0) printf("\n");
+    }
+    printf("Scan finished\n");
+}
 /* USER CODE END 0 */
 
 /**
@@ -89,7 +103,11 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+	uint8_t		imu_readings[IMU_NUMBER_OF_BYTES];
+	int16_t 	accel_data[3];
+	float		acc_x, acc_y, acc_z;
 
+	char fw_buf[256] = {0};
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -115,28 +133,47 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
+  HAL_Delay(6000);  // wait for ESP to fully boot
+
+  I2C_scan();
   printf("Configure finished\n");
 
   BNO055_Init_I2C(&hi2c1);
+  printf("BNO055 initialisation finished\n");
 
-  printf("Initialization finished\n");
+  // Send AT+GMR to get firmware version
+//  HAL_UART_Transmit(&huart3, (uint8_t*)"AT+GMR\r\n", 8, 1000);
+//  HAL_Delay(500);
+//  HAL_UART_Receive(&huart3, (uint8_t*)fw_buf, sizeof(fw_buf)-1, 1000);
 
-  // Go through all possible i2c addresses
-	for (uint8_t i = 0; i < 128; i++) {
+  uint32_t bauds[] = {9600, 38400, 57600, 74880, 115200};
 
-	  if (HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t)(i<<1), 3, 5) == HAL_OK) {
-		  // We got an ack
-		  printf("%2x ", i);
-	  } else {
-		  printf("-- ");
-	  }
+  for (int i = 0; i < 5; i++) {
+      // Reinit UART with new baud rate
+      huart3.Init.BaudRate = bauds[i];
+      HAL_UART_Init(&huart3);
+      HAL_Delay(100);
 
-	  if (i > 0 && (i + 1) % 16 == 0) printf("\n");
+      // Try AT command
+      memset(fw_buf, 0, sizeof(fw_buf));
+      HAL_UART_Transmit(&huart3, (uint8_t*)"AT\r\n", 4, 1000);
+      HAL_Delay(500);
+      HAL_UART_Receive(&huart3, (uint8_t*)fw_buf, sizeof(fw_buf)-1, 1000);
 
-	}
-	printf("Scan finished\n");
+      printf("Baud %lu: [%s]\r\n", bauds[i], fw_buf);
 
+      // If we got "OK" we found it
+      if (strstr(fw_buf, "OK") != NULL) {
+          printf("Found ESP at baud: %lu\r\n", bauds[i]);
+          break;
+      }
+  }
 
+  MQTT_Init();
+    printf("MQTT initialisation finished\n");
+
+  // Print response to your debug UART (USART2)
+  printf("ESP FW: %s\r\n", fw_buf);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -146,7 +183,18 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  HAL_Delay(300);
+	  GetAccelData(&hi2c1, (uint8_t*)imu_readings);
+	  accel_data[0] = (((int16_t)((uint8_t *)(imu_readings))[1] << 8) | ((uint8_t *)(imu_readings))[0]);      // Turn the MSB and LSB into a signed 16-bit value
+	  accel_data[1] = (((int16_t)((uint8_t *)(imu_readings))[3] << 8) | ((uint8_t *)(imu_readings))[2]);
+	  accel_data[2] = (((int16_t)((uint8_t *)(imu_readings))[5] << 8) | ((uint8_t *)(imu_readings))[4]);
+	  acc_x = ((float)(accel_data[0]))/100.0f; //m/s2
+	  acc_y = ((float)(accel_data[1]))/100.0f;
+	  acc_z = ((float)(accel_data[2]))/100.0f;
+	  printf("X: %.2f Y: %.2f Z: %.2f\r\n", acc_x, acc_y, acc_z);
 
+	  MQTT_Publish(acc_x, acc_y, acc_z);
+	  HAL_Delay(100); // 10Hz publish rate
   }
   /* USER CODE END 3 */
 }
@@ -299,7 +347,7 @@ static void MX_USART3_UART_Init(void)
 
   /* USER CODE END USART3_Init 1 */
   huart3.Instance = USART3;
-  huart3.Init.BaudRate = 115200;
+  huart3.Init.BaudRate = 74880;
   huart3.Init.WordLength = UART_WORDLENGTH_8B;
   huart3.Init.StopBits = UART_STOPBITS_1;
   huart3.Init.Parity = UART_PARITY_NONE;

@@ -199,8 +199,6 @@ typedef enum {
 /* =========================================
  * SENSOR CONFIGURATION (PAGE 1)
  * ========================================= */
-
-
 // Set initial input parameters
 typedef enum  {  // ACC Full Scale
   AFS_2G = 0x00,
