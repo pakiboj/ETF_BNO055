@@ -4,8 +4,7 @@
 #include <stdint.h>
 #include "stm32l4xx_ll_usart.h"
 
-#define ACC_MEASURE_PERIOD					10  	// 20 [ms] => 50Hz; 10 => 100Hz (91 oli enne seal)
-#define	IMU_NUMBER_OF_BYTES					18			// Number of bytes to read from IMU register
+#define	IMU_NUMBER_OF_BYTES					6			// Number of bytes to read from IMU register
 
 
 extern uint8_t		imu_readings[IMU_NUMBER_OF_BYTES];

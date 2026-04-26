@@ -13,9 +13,7 @@
 
 extern char uart3_buf[256];  // shared buffer
 
-void AT_Send(const char* cmd);
-void AT_Receive(void);
-void MQTT_Init(void);
-void MQTT_Publish(float acc_x, float acc_y, float acc_z);
+void ESP_SendCommand(const char *cmd, uint32_t wait_ms);
+void ESP_MQTTTest(void);
 
 #endif /* INC_MQTT_H_ */

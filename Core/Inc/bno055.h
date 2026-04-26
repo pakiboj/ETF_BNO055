@@ -4,7 +4,7 @@
 #include "stm32l4xx_hal.h"
 #include <stdint.h>
 
-/* PAGE 0 REGISTER ADRESSES*/
+// PAGE 0 REGISTER ADRESSES
 #define BNO055_REG_CHIP_ID          0x00
 #define BNO055_REG_ACC_ID           0x01
 #define BNO055_MAG_ID           0x02    // value: 0x32
@@ -115,7 +115,8 @@
 #define BNO055_REG_ACC_RADIUS_MSB  0x68
 #define BNO055_MAG_RADIUS_LSB   0x69
 #define BNO055_MAG_RADIUS_MSB   0x6A
-/* PAGE 1 REGISTER ADRESSES*/
+
+// PAGE 1 REGISTER ADRESSES
 #define BNO055_REG_ACC_CONFIG            0x08
 #define BNO055_MAG_CONFIG       0x09
 #define BNO055_GYRO_CONFIG_0    0x0A
@@ -166,8 +167,9 @@
 
 
 /* =========================================
- * POWER MODES
+ * POWER MODES FOR BNO055
  * ========================================= */
+
 typedef enum {
     BNO055_POWER_NORMAL   = 0x00,
     BNO055_POWER_LOWPOWER = 0x01,
@@ -176,8 +178,9 @@ typedef enum {
 } BNO055_PowerMode_t;
 
 /* =========================================
- * OPERATION MODES
+ * OPERATION MODES FOR BNO055
  * ========================================= */
+
 typedef enum {
     BNO055_MODE_CONFIG       = 0x00,
     BNO055_MODE_ACCONLY      = 0x01,
@@ -199,7 +202,7 @@ typedef enum {
 /* =========================================
  * SENSOR CONFIGURATION (PAGE 1)
  * ========================================= */
-// Set initial input parameters
+
 typedef enum  {  // ACC Full Scale
   AFS_2G = 0x00,
   AFS_4G = 0x01,
@@ -215,7 +218,7 @@ typedef enum  { // ACC Bandwidth
   ABW_125Hz = 0x04,
   ABW_250Hz = 0x05,
   ABW_500Hz = 0x06,
-  ABW_1000Hz = 0x07    //0x07
+  ABW_1000Hz = 0x07
 } BNO055_Acc_BW;
 
 typedef enum  { // ACC Pwr Mode
@@ -227,15 +230,15 @@ typedef enum  { // ACC Pwr Mode
   DeepSuspendA = 0x05
 } BNO055_Acc_PwrMode;
 
-typedef enum  {  // gyro full scale
+typedef enum  {  // GYRO full scale
   GFS_2000DPS = 0x00,
   GFS_1000DPS = 0x01,
   GFS_500DPS = 0x02,
   GFS_250DPS = 0x03,
-  GFS_125DPS = 0x04   // 0x04
+  GFS_125DPS = 0x04
 } BNO055_Gyro_scale;
 
-typedef enum  { // GYR Pwr Mode
+typedef enum  { // GYRO Pwr Mode
   NormalG = 0x00,
   FastPowerUpG = 0x01,
   DeepSuspendedG = 0x02,
@@ -243,7 +246,7 @@ typedef enum  { // GYR Pwr Mode
   AdvancedPowerSaveG = 0x04
 } BNO055_Gyro_PwrMode;
 
-typedef enum  { // gyro bandwidth
+typedef enum  { // GYRO bandwidth
   GBW_523Hz = 0x00,
   GBW_230Hz = 0x01,
   GBW_116Hz = 0x02,
@@ -254,7 +257,7 @@ typedef enum  { // gyro bandwidth
   GBW_32Hz = 0x07
 } BNO055_Gyro_BW;
 
-typedef enum  {         // magnetometer output data rate
+typedef enum  { // MAG output data rate
   MODR_2Hz = 0x00,
   MODR_6Hz = 0x01,
   MODR_8Hz = 0x02,
@@ -279,6 +282,7 @@ typedef enum  { // MAG power mode
   ForceModeM = 0x03
 } BNO055_Mag_PwrMode;
 
+
 /* =========================================
  * OUTPUT DATA
  * ========================================= */
@@ -288,13 +292,11 @@ typedef enum {
     mg = 0x01
 } BNO055_UNIT_acceleration;
 
-/* Quaternion */
 typedef enum {
 	DPS = 0x00,
 	RPS = 0x01
 } BNO055_UNIT_angular;
 
-/* Euler angles */
 typedef enum {
 	degrees = 0x00,
 	radians = 0x01

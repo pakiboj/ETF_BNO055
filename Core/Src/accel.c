@@ -3,6 +3,8 @@
 #include "bno055.h"
 #include "accel.h"
 
+
+// Choosing working modes for GYRO and MAG
 /*
 //uint8_t Mscale 	= MFS_4Gauss;		// Select magnetometer full-scale resolution
 uint8_t MOpMode 	= EnhancedRegular;    	// Select magnetometer perfomance mode
@@ -15,11 +17,10 @@ uint8_t Gscale 		= GFS_2000DPS; 	// Gyro full scale
 uint8_t Gbw 			= GBW_230Hz;    // Gyro bandwidth
 */
 
-
 // Choosing working mode for accelerometer
 uint8_t Ascale 		= AFS_4G;      // Accel full scale
 uint8_t APwrMode 	= NormalA;   		// Accel power mode
-uint8_t Abw 		= ABW_62_5Hz;    // Accel bandwidth, accel sample rate divided by ABW_divx
+uint8_t Abw 		= ABW_1000Hz;    // Accel bandwidth, accel sample rate divided by ABW_divx
 //
 uint8_t PWRMode 	= BNO055_POWER_NORMAL;  	// Select BNO055 power mode
 uint8_t OPRMode 	= BNO055_MODE_ACCONLY;    	// specify operation mode for sensors [ACCONLY|MAGONLY|GYROONLY|ACCMAG|ACCGYRO|MAGGYRO|AMG|NDOF|NDOF_FMC_OFF]
@@ -37,6 +38,7 @@ uint8_t cal_imu 	= 0;
 
 const uint8_t num_of_bytes_read = 18;		// Read number of bytes from IMU (24 for ACCGYRO; 38 for NDOF)
 
+//helper chars, maybe wont be used
 const char read_devid[] 	= {START_BYTE, REG_READ, BNO055_REG_CHIP_ID, 0x01};
 //const char read_acc[] 		= {REG_READ, BNO055_ACC_DATA_X_LSB, num_of_bytes_read};
 const char read_calib[2] 	= {REG_READ, BNO055_REG_CALIB_STAT};
