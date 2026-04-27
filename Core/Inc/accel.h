@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "stm32l4xx_ll_usart.h"
+#include "circ_buff.h"
 
 #define	IMU_NUMBER_OF_BYTES					6			// Number of bytes to read from IMU register
 
@@ -15,7 +16,7 @@ void BNO055_Init_I2C(I2C_HandleTypeDef* hi2c_device);
 
 void readAccelData(int16_t * destination);
 //void SendAccelData(USART_TypeDef* USARTx, uint8_t* str);
-uint8_t GetAccelData(I2C_HandleTypeDef* hi2c_device, uint8_t* str);
+HAL_StatusTypeDef GetAccelData(I2C_HandleTypeDef* hi2c_device, cbuf_handle_t cbuf, uint8_t* str);
 uint8_t GetAccelChipId(I2C_HandleTypeDef* hi2c_device, uint8_t *chip_id);
 uint8_t GetAccelTemp(I2C_HandleTypeDef* hi2c_device);
 uint8_t BNO055_Get_Calibration(I2C_HandleTypeDef* hi2c_device);

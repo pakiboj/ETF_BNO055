@@ -30,7 +30,8 @@ Core/Src/accel.o: ../Core/Src/accel.c \
  ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal_uart.h \
  ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_hal_uart_ex.h \
  ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_ll_i2c.h \
- ../Core/Inc/bno055.h ../Core/Inc/accel.h
+ ../Core/Inc/bno055.h ../Core/Inc/accel.h ../Core/Inc/circ_buff.h \
+ ../Core/Inc/circ_buff.h
 ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_ll_usart.h:
 ../Drivers/CMSIS/Device/ST/STM32L4xx/Include/stm32l4xx.h:
 ../Drivers/CMSIS/Device/ST/STM32L4xx/Include/stm32l476xx.h:
@@ -64,3 +65,5 @@ Core/Src/accel.o: ../Core/Src/accel.c \
 ../Drivers/STM32L4xx_HAL_Driver/Inc/stm32l4xx_ll_i2c.h:
 ../Core/Inc/bno055.h:
 ../Core/Inc/accel.h:
+../Core/Inc/circ_buff.h:
+../Core/Inc/circ_buff.h:

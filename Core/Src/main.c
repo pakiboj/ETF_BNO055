@@ -27,6 +27,8 @@
 #include "bno055.h"
 #include "accel.h"
 #include "MQTT.h"
+#include "circ_buff.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -49,6 +51,7 @@ I2C_HandleTypeDef hi2c1;
 
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
+DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
 
@@ -57,11 +60,16 @@ UART_HandleTypeDef huart3;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 void I2C_scan(void);
+
+#define CIRCULAR_BUFFER_SIZE 1000
+#define PEEK_ARRAY_SIZE 5
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -107,9 +115,16 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
 	uint8_t		imu_readings[IMU_NUMBER_OF_BYTES];
-	int16_t 	accel_data[3];
 //	float		acc_x, acc_y, acc_z;
-	char tx_buf[64];
+	static char tx_buf[64];
+
+	accel_sample_t data_sem;
+
+	accel_sample_t circular_buffer_storage[CIRCULAR_BUFFER_SIZE] = {0};
+
+	circular_buf_t cb;
+	cbuf_handle_t handle_ = &cb;
+
 
 	//char fw_buf[256] = {0};
   /* USER CODE END 1 */
@@ -132,6 +147,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_I2C1_Init();
   MX_USART3_UART_Init();
   MX_USART2_UART_Init();
@@ -139,12 +155,14 @@ int main(void)
   printf("New session started \n");
   HAL_Delay(2000);
 
-  I2C_scan();
-  printf("Configure finished\n");
+//  I2C_scan();
+//  printf("Configure finished\n");
 
   BNO055_Init_I2C(&hi2c1);
   printf("BNO055 initialisation finished\n");
 
+  circular_buf_init(handle_, circular_buffer_storage, CIRCULAR_BUFFER_SIZE);
+  printf("Circular buffer initialisation finished\n");
   //ESP_MQTTTest();
 
   /* USER CODE END 2 */
@@ -156,24 +174,26 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  GetAccelData(&hi2c1, (uint8_t*)imu_readings); //read from I2C next sizeof(imu_readings) bytes
-	  accel_data[0] = (((int16_t)((uint8_t *)(imu_readings))[1] << 8) | ((uint8_t *)(imu_readings))[0]);      // Turn the MSB and LSB into a signed 16-bit value
-	  accel_data[1] = (((int16_t)((uint8_t *)(imu_readings))[3] << 8) | ((uint8_t *)(imu_readings))[2]);
-	  accel_data[2] = (((int16_t)((uint8_t *)(imu_readings))[5] << 8) | ((uint8_t *)(imu_readings))[4]);
+	  GetAccelData(&hi2c1, handle_, (uint8_t*)imu_readings); //read from I2C next sizeof(imu_readings) bytes
 //	  acc_x = ((float)(accel_data[0]))/100.0f; //m/s2
 //	  acc_y = ((float)(accel_data[1]))/100.0f;
 //	  acc_z = ((float)(accel_data[2]))/100.0f;
 	  //printf("X: %.2f Y: %.2f Z: %.2f\r\n", acc_x, acc_y, acc_z); //printing on serial monitor
 
-	  int len = snprintf(tx_buf, sizeof(tx_buf), //faster tehn prinf
-	                     "X:%d Y:%d Z:%d\r\n",
-	                     accel_data[0],
-	                     accel_data[1],
-	                     accel_data[2]);
+	  uint8_t i2c_status = GetAccelData(&hi2c1, handle_, (uint8_t*)imu_readings);
+	  printf("I2C status: %d, buf_size: %d\n", i2c_status, circular_buf_size(handle_));
+	  if(!circular_buf_empty(handle_)&& (HAL_UART_GetState(&huart2) == HAL_UART_STATE_READY))
+	  {
+		  circular_buf_get(handle_, &data_sem);
+		  int len = snprintf(tx_buf, sizeof(tx_buf), //faster tehn prinf
+					 "X:%d Y:%d Z:%d\r\n",
+					 data_sem.x,
+					 data_sem.y,
+					 data_sem.z);
+		  HAL_UART_Transmit_DMA(&huart2,(uint8_t*)tx_buf, len);
+	  }
 
-	  HAL_UART_Transmit(&huart2, (uint8_t*)tx_buf, len, 10); //transmiting via UART for speed
-	  	  	  	  	  	  	  	  	  	  	  	  	  	  	 //but transmiting intiger values,
-	  	  	  	  	  	  	  	  	  	  	  	  	  	  	 //also for speed
+
 	  //using PuTTy for capturing readings
 
   }
@@ -345,6 +365,22 @@ static void MX_USART3_UART_Init(void)
   /* USER CODE BEGIN USART3_Init 2 */
 
   /* USER CODE END USART3_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel7_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel7_IRQn);
 
 }
 

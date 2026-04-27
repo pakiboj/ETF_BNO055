@@ -1,0 +1,12 @@
+../Core/Src/circ_buff.c:13:22:advance_headtail_value	1
+../Core/Src/circ_buff.c:18:13:advance_head_pointer	2
+../Core/Src/circ_buff.c:33:6:circular_buf_init	3
+../Core/Src/circ_buff.c:55:6:circular_buf_reset	1
+../Core/Src/circ_buff.c:64:8:circular_buf_size	3
+../Core/Src/circ_buff.c:85:8:circular_buf_capacity	1
+../Core/Src/circ_buff.c:92:6:circular_buf_put	2
+../Core/Src/circ_buff.c:101:5:circular_buf_try_put	3
+../Core/Src/circ_buff.c:117:5:circular_buf_get	4
+../Core/Src/circ_buff.c:134:6:circular_buf_empty	3
+../Core/Src/circ_buff.c:141:6:circular_buf_full	1
+../Core/Src/circ_buff.c:148:5:circular_buf_peek	6
