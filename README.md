@@ -1,0 +1,1 @@
+U okviru obavezne prakse na ETF-u radio sam firmware za mikrokontroler koji ce kupiti podatke sa zadatog mernog cipa. Glavni cilj ovog projekta je bila maksimalno iskoriscenje performansi mikrokontrolera i cipa. 
