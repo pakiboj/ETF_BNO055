@@ -61,7 +61,7 @@ main-build: ETFproj.elf secondary-outputs
 
 # Tool invocations
 ETFproj.elf ETFproj.map: $(OBJS) $(USER_OBJS) C:\MIHAJLO\faks\PRAKSA\rad\ETFproj\STM32L476RGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "ETFproj.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\MIHAJLO\faks\PRAKSA\rad\ETFproj\STM32L476RGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="ETFproj.map" -Wl,--gc-sections -static -u _printf_float --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+	arm-none-eabi-gcc -o "ETFproj.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\MIHAJLO\faks\PRAKSA\rad\ETFproj\STM32L476RGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="ETFproj.map" -Wl,--gc-sections -static -u _printf_float --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

@@ -18,9 +18,9 @@ typedef struct circular_buf_t circular_buf_t;
 typedef circular_buf_t* cbuf_handle_t;
 
 typedef struct {
-    int16_t x;
-    int16_t y;
-    int16_t z;
+    float x;
+    float y;
+    float z;
 } accel_sample_t;
 
 struct circular_buf_t

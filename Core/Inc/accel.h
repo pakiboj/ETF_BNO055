@@ -16,11 +16,13 @@ void BNO055_Init_I2C(I2C_HandleTypeDef* hi2c_device);
 
 void readAccelData(int16_t * destination);
 //void SendAccelData(USART_TypeDef* USARTx, uint8_t* str);
-HAL_StatusTypeDef GetAccelData(I2C_HandleTypeDef* hi2c_device, cbuf_handle_t cbuf, uint8_t* str);
+void GetAccelData(I2C_HandleTypeDef* hi2c_device, cbuf_handle_t cbuf, uint8_t* str);
+HAL_StatusTypeDef GetAccelData_DMA_Start(I2C_HandleTypeDef* hi2c, uint8_t* buf);
 uint8_t GetAccelChipId(I2C_HandleTypeDef* hi2c_device, uint8_t *chip_id);
 uint8_t GetAccelTemp(I2C_HandleTypeDef* hi2c_device);
 uint8_t BNO055_Get_Calibration(I2C_HandleTypeDef* hi2c_device);
 void BNO055_Calc_Calibration(uint8_t calibration, uint8_t *cal_system, uint8_t *cal_gyro, uint8_t *cal_acc, uint8_t *cal_mag);
-
+void BNO055_ResetInterrupt(I2C_HandleTypeDef* hi2c_device);
+void BNO055_ResetInterrupt(I2C_HandleTypeDef* hi2c_device);
 #endif
 

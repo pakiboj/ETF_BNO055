@@ -19,7 +19,7 @@
 	*/
 	
 	// Choosing working mode for accelerometer
-	uint8_t Ascale 		= AFS_4G;      // Accel full scale
+	uint8_t Ascale 		= AFS_2G;      // Accel full scale
 	uint8_t APwrMode 	= NormalA;   		// Accel power mode
 	uint8_t Abw 		= ABW_1000Hz;    // Accel bandwidth, accel sample rate divided by ABW_divx
 	//
@@ -54,6 +54,14 @@
 		// Configure ACC (Page 1; 0x08)
 		uint8_t conf_acc[2] = {BNO055_REG_ACC_CONFIG, APwrMode << 5 | Abw << 2 | Ascale};
 		HAL_I2C_Master_Transmit(hi2c_device, BNO055_I2C_ADDR_LO<<1, conf_acc, sizeof(conf_acc), 10);
+		HAL_Delay(10);
+
+		uint8_t int_en[2] = {BNO055_REG_INT_EN, 0x01};
+		HAL_I2C_Master_Transmit(hi2c_device, BNO055_I2C_ADDR_LO<<1, int_en, sizeof(int_en), 10);
+		HAL_Delay(10);
+
+		uint8_t int_msk[2] = {BNO055_REG_INT_MSK, 0x01};
+		HAL_I2C_Master_Transmit(hi2c_device, BNO055_I2C_ADDR_LO<<1, int_msk, sizeof(int_msk), 10);
 		HAL_Delay(10);
 
 		/*
@@ -104,9 +112,9 @@
 		HAL_Delay(50);
 	}
 	// Send data from BNO055 over I2C
-	HAL_StatusTypeDef GetAccelData(I2C_HandleTypeDef* hi2c_device, cbuf_handle_t cbuf, uint8_t* str) {
+	void GetAccelData(I2C_HandleTypeDef* hi2c_device, cbuf_handle_t cbuf, uint8_t* str) {
 		uint8_t status;
-		status = HAL_I2C_Mem_Read(hi2c_device, BNO055_I2C_ADDR_LO<<1, BNO055_REG_ACC_DATA_X_LSB, I2C_MEMADD_SIZE_8BIT, str, IMU_NUMBER_OF_BYTES,100);
+		status = HAL_I2C_Mem_Read(hi2c_device, BNO055_I2C_ADDR_LO<<1, BNO055_REG_ACC_DATA_X_LSB, I2C_MEMADD_SIZE_8BIT, str, IMU_NUMBER_OF_BYTES,10);
 	  //while (HAL_I2C_GetState(hi2c_device) != HAL_I2C_STATE_READY) {}
 		if (status == HAL_OK)
 		{
@@ -119,13 +127,11 @@
 				accel_data[1],
 				accel_data[2]
 			};
-
 			circular_buf_put(cbuf, data_sem);
-			if(circular_buf_full(cbuf)){
-				circular_buf_reset(cbuf);
-			}
+
 		}
 	}
+
 	// TBD
 	uint8_t GetAccelChipId(I2C_HandleTypeDef* hi2c_device, uint8_t *chip_id) {
 		return HAL_I2C_Mem_Read(hi2c_device, BNO055_I2C_ADDR_LO<<1, BNO055_REG_CHIP_ID, I2C_MEMADD_SIZE_8BIT, chip_id, 1, 100);
@@ -136,6 +142,11 @@
 		HAL_I2C_Mem_Read_DMA(hi2c_device, BNO055_I2C_ADDR_LO<<1, BNO055_TEMP, I2C_MEMADD_SIZE_8BIT, &temp, 1);
 		while (HAL_I2C_GetState(hi2c_device) != HAL_I2C_STATE_READY) {}
 		return temp;
+	}
+
+	void BNO055_ResetInterrupt(I2C_HandleTypeDef* hi2c_device) {
+	    uint8_t rst_int[2] = {BNO055_REG_SYS_TRIGGER, 0x40};
+	    HAL_I2C_Master_Transmit(hi2c_device, BNO055_I2C_ADDR_LO<<1, rst_int, sizeof(rst_int), 10);
 	}
 
 	//// Get IMU calibration values

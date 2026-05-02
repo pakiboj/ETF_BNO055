@@ -1,4 +1,5 @@
-../Core/Src/accel.c:43:7:BNO055_Init_I2C	48	static
-../Core/Src/accel.c:107:20:GetAccelData	48	static
-../Core/Src/accel.c:130:10:GetAccelChipId	32	static
-../Core/Src/accel.c:134:10:GetAccelTemp	32	static
+../Core/Src/accel.c:43:7:BNO055_Init_I2C	56	static
+../Core/Src/accel.c:115:7:GetAccelData	56	static
+../Core/Src/accel.c:136:10:GetAccelChipId	32	static
+../Core/Src/accel.c:140:10:GetAccelTemp	32	static
+../Core/Src/accel.c:147:7:BNO055_ResetInterrupt	32	static

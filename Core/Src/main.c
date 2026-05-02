@@ -29,6 +29,8 @@
 #include "MQTT.h"
 #include "circ_buff.h"
 
+#include <stdlib.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -48,6 +50,8 @@
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
+DMA_HandleTypeDef hdma_i2c1_rx;
+DMA_HandleTypeDef hdma_i2c1_tx;
 
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
@@ -66,43 +70,28 @@ static void MX_USART3_UART_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 void I2C_scan(void);
+void BNO055_SysCheck(void);
 
-#define CIRCULAR_BUFFER_SIZE 1000
+
+#define CIRCULAR_BUFFER_SIZE 20 //defines for circular buffer
 #define PEEK_ARRAY_SIZE 5
+
+static accel_sample_t circular_buffer_storage[CIRCULAR_BUFFER_SIZE] = {0};
+
+volatile uint8_t bno055_data_ready = 0;
+volatile uint8_t i2cdma_ready = 0;
+volatile uint8_t irq_got = 0;
+
+static circular_buf_t cb;
+static cbuf_handle_t handle_ = &cb;
+
+static uint8_t imu_dma_buf[IMU_NUMBER_OF_BYTES];
+
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-// Send printf to uart2
-int _write(int fd, char* ptr, int len) {
-  HAL_StatusTypeDef hstatus;
-
-  if (fd == 1 || fd == 2) {
-    hstatus = HAL_UART_Transmit(&huart2, (uint8_t *) ptr, len, HAL_MAX_DELAY);
-    if (hstatus == HAL_OK)
-      return len;
-    else
-      return -1;
-  }
-  return -1;
-}
-
-//function used to scan I2C, even tho its written on datasheet, this function is used for checking
-//working state of I2C lines
-void I2C_scan(void)
-{
-    for (uint8_t i = 0; i < 128; i++) {
-        if (HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t)(i<<1), 3, 5) == HAL_OK) {
-            printf("%2x ", i);
-        } else {
-            printf("-- ");
-        }
-        if (i > 0 && (i + 1) % 16 == 0) printf("\n");
-    }
-    printf("Scan finished\n");
-}
-
 
 /* USER CODE END 0 */
 
@@ -114,19 +103,10 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-	uint8_t		imu_readings[IMU_NUMBER_OF_BYTES];
-//	float		acc_x, acc_y, acc_z;
 	static char tx_buf[64];
-
 	accel_sample_t data_sem;
 
-	accel_sample_t circular_buffer_storage[CIRCULAR_BUFFER_SIZE] = {0};
 
-	circular_buf_t cb;
-	cbuf_handle_t handle_ = &cb;
-
-
-	//char fw_buf[256] = {0};
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -155,44 +135,63 @@ int main(void)
   printf("New session started \n");
   HAL_Delay(2000);
 
-//  I2C_scan();
-//  printf("Configure finished\n");
+  //  I2C_scan();
+  //  printf("Configure finished\n");
+
+  circular_buf_init(handle_, circular_buffer_storage, CIRCULAR_BUFFER_SIZE);
+  printf("Circular buffer initialisation finished\n");
 
   BNO055_Init_I2C(&hi2c1);
   printf("BNO055 initialisation finished\n");
 
-  circular_buf_init(handle_, circular_buffer_storage, CIRCULAR_BUFFER_SIZE);
-  printf("Circular buffer initialisation finished\n");
-  //ESP_MQTTTest();
+  //BNO055_SysCheck()
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+//  HAL_I2C_Mem_Read_DMA(&hi2c1, BNO055_I2C_ADDR_LO<<1,
+//					   BNO055_REG_ACC_DATA_X_LSB,
+//					   I2C_MEMADD_SIZE_8BIT,
+//					   imu_dma_buf, IMU_NUMBER_OF_BYTES);
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  GetAccelData(&hi2c1, handle_, (uint8_t*)imu_readings); //read from I2C next sizeof(imu_readings) bytes
-//	  acc_x = ((float)(accel_data[0]))/100.0f; //m/s2
-//	  acc_y = ((float)(accel_data[1]))/100.0f;
-//	  acc_z = ((float)(accel_data[2]))/100.0f;
-	  //printf("X: %.2f Y: %.2f Z: %.2f\r\n", acc_x, acc_y, acc_z); //printing on serial monitor
 
-	  uint8_t i2c_status = GetAccelData(&hi2c1, handle_, (uint8_t*)imu_readings);
-	  printf("I2C status: %d, buf_size: %d\n", i2c_status, circular_buf_size(handle_));
-	  if(!circular_buf_empty(handle_)&& (HAL_UART_GetState(&huart2) == HAL_UART_STATE_READY))
-	  {
-		  circular_buf_get(handle_, &data_sem);
-		  int len = snprintf(tx_buf, sizeof(tx_buf), //faster tehn prinf
-					 "X:%d Y:%d Z:%d\r\n",
-					 data_sem.x,
-					 data_sem.y,
-					 data_sem.z);
-		  HAL_UART_Transmit_DMA(&huart2,(uint8_t*)tx_buf, len);
+	  if(bno055_data_ready == 1 && irq_got == 0){ //GPIO interrupt handler
+		  bno055_data_ready = 0;
+		  HAL_I2C_Mem_Read_DMA(&hi2c1, BNO055_I2C_ADDR_LO<<1,
+							   BNO055_REG_ACC_DATA_X_LSB,
+							   I2C_MEMADD_SIZE_8BIT,
+							   imu_dma_buf, IMU_NUMBER_OF_BYTES);
+		  irq_got = 1; //flags that it got interrupt
+//		  printf("ISR ");
+
 	  }
 
+	  if(i2cdma_ready == 1){ //I2C finished callback handler
+		  BNO055_ResetInterrupt(&hi2c1);
+		  i2cdma_ready = 0;
+		  accel_sample_t s = {
+		  	  ((int16_t)((imu_dma_buf[1] << 8) | imu_dma_buf[0])) / 100.0f,
+			  ((int16_t)((imu_dma_buf[3] << 8) | imu_dma_buf[2])) / 100.0f,
+			  ((int16_t)((imu_dma_buf[5] << 8) | imu_dma_buf[4])) / 100.0f
+		  	  	  	  	  	  };
+		  circular_buf_put(handle_, s);
+//		  printf("TRANSFER\r\n ");
+	  }
+
+
+	  if(!circular_buf_empty(handle_)&& (HAL_UART_GetState(&huart2) == HAL_UART_STATE_READY)) //sending to UART logic
+	  {
+		  circular_buf_get(handle_, &data_sem);
+		  int len = snprintf(tx_buf, sizeof(tx_buf),
+		                     "%.2f %.2f %.2f\r\n",
+		                     data_sem.x, data_sem.y, data_sem.z);
+		  HAL_UART_Transmit_DMA(&huart2,(uint8_t*)tx_buf, len); //send via DMA and forget
+	  }
 
 	  //using PuTTy for capturing readings
 
@@ -314,13 +313,13 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 115200;
+  huart2.Init.BaudRate = 921600 ;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;
   huart2.Init.Mode = UART_MODE_TX_RX;
   huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_8;
   huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
   huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
   if (HAL_UART_Init(&huart2) != HAL_OK)
@@ -376,11 +375,18 @@ static void MX_DMA_Init(void)
 
   /* DMA controller clock enable */
   __HAL_RCC_DMA1_CLK_ENABLE();
+  __HAL_RCC_DMA2_CLK_ENABLE();
 
   /* DMA interrupt init */
+  /* DMA1_Channel6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 2, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
   /* DMA1_Channel7_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, 1, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel7_IRQn);
+  /* DMA2_Channel6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Channel6_IRQn, 2, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Channel6_IRQn);
 
 }
 
@@ -391,6 +397,7 @@ static void MX_DMA_Init(void)
   */
 static void MX_GPIO_Init(void)
 {
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
   /* USER CODE BEGIN MX_GPIO_Init_1 */
 
   /* USER CODE END MX_GPIO_Init_1 */
@@ -401,12 +408,99 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
+  /*Configure GPIO pin : BNO055_INT_Pin */
+  GPIO_InitStruct.Pin = BNO055_INT_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(BNO055_INT_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 3, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
+int _write(int fd, char* ptr, int len) {
+  HAL_StatusTypeDef hstatus;
+
+  if (fd == 1 || fd == 2) {
+    hstatus = HAL_UART_Transmit(&huart2, (uint8_t *) ptr, len, HAL_MAX_DELAY);
+    if (hstatus == HAL_OK)
+      return len;
+    else
+      return -1;
+  }
+  return -1;
+}
+
+//function used to scan I2C, even tho its written on datasheet, this function is used for checking
+//working state of I2C lines
+void I2C_scan(void)
+{
+    for (uint8_t i = 0; i < 128; i++) {
+        if (HAL_I2C_IsDeviceReady(&hi2c1, (uint16_t)(i<<1), 3, 5) == HAL_OK) {
+            printf("%2x ", i);
+        } else {
+            printf("-- ");
+        }
+        if (i > 0 && (i + 1) % 16 == 0) printf("\n");
+    }
+    printf("Scan finished\n");
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    if (GPIO_Pin == BNO055_INT_Pin) {   bno055_data_ready = 1;
+    }
+}
+
+void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+    if (hi2c == &hi2c1) {  i2cdma_ready = 1;
+    irq_got = 0; //releace interrupt flag
+    }
+}
+
+void BNO055_SysCheck(void){  //function for checking the working state of BNO chip
+	char tx[] = "AT\r\n";
+	  uint8_t rx[128] = {0};
+
+	  HAL_UART_Transmit(&huart3, (uint8_t*)tx, strlen(tx), 200);
+	  HAL_UART_Receive(&huart3, rx, sizeof(rx) - 1, 2000);
+	  printf("Response: %s\r\n", rx);
+
+	  uint8_t conf_page1[2] = {BNO055_REG_PAGE_ID, 0x01};
+	  HAL_I2C_Master_Transmit(&hi2c1, BNO055_I2C_ADDR_LO<<1, conf_page1, sizeof(conf_page1), 10);
+	  HAL_Delay(10);
+
+	  uint8_t reg;
+	  HAL_I2C_Mem_Read(&hi2c1, BNO055_I2C_ADDR_LO<<1, BNO055_REG_INT_EN, I2C_MEMADD_SIZE_8BIT, &reg, 1,10);
+	  printf("INT_EN REG: 0x%02X\r\n", reg);
+	  HAL_I2C_Mem_Read(&hi2c1, BNO055_I2C_ADDR_LO<<1, BNO055_REG_INT_MSK, I2C_MEMADD_SIZE_8BIT, &reg, 1,10);
+	  printf("INT_MSK REG: 0x%02X\r\n", reg);
+
+
+	  uint8_t conf_page0_set[2] = {BNO055_REG_PAGE_ID, 0x00};
+	  HAL_I2C_Master_Transmit(&hi2c1, BNO055_I2C_ADDR_LO<<1, conf_page0_set, sizeof(conf_page0_set), 10);
+	  HAL_Delay(10);
+
+	  HAL_I2C_Mem_Read(&hi2c1, BNO055_I2C_ADDR_LO<<1, BNO055_REG_OPR_MODE, I2C_MEMADD_SIZE_8BIT, &reg, 1,10);
+	  printf("OPR_MODE REG: 0x%02X\r\n", reg);
+	  HAL_StatusTypeDef st = HAL_I2C_Mem_Read(&hi2c1, BNO055_I2C_ADDR_LO<<1, BNO055_REG_CHIP_ID, I2C_MEMADD_SIZE_8BIT, &reg, 1, 10);
+	  printf("CHIP_ID: 0x%02X (status %d)\r\n", reg, st);
+	  HAL_I2C_Mem_Read(&hi2c1, BNO055_I2C_ADDR_LO<<1, BNO055_REG_ACC_ID, I2C_MEMADD_SIZE_8BIT, &reg, 1,10);
+	  printf("ACC_ID REG: 0x%02X\r\n", reg);
+
+	  HAL_I2C_Mem_Read(&hi2c1, BNO055_I2C_ADDR_LO<<1, 0x04, I2C_MEMADD_SIZE_8BIT, &reg, 1,10);
+	    printf("MSB SW REG: 0x%02X\r\n", reg);
+	    HAL_I2C_Mem_Read(&hi2c1, BNO055_I2C_ADDR_LO<<1, 0x05, I2C_MEMADD_SIZE_8BIT, &reg, 1,10);
+	    printf("LSB SW REG: 0x%02X\r\n", reg);
+
+}
 
 /* USER CODE END 4 */
 
