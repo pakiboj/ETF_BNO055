@@ -8,6 +8,6 @@
 ../Core/Src/main.c:425:5:_write	4
 ../Core/Src/main.c:440:6:I2C_scan	5
 ../Core/Src/main.c:453:6:HAL_GPIO_EXTI_Callback	2
-../Core/Src/main.c:459:6:HAL_I2C_MemRxCpltCallback	2
-../Core/Src/main.c:466:6:SysCheck	1
-../Core/Src/main.c:509:6:Error_Handler	1
+../Core/Src/main.c:463:6:HAL_I2C_MemRxCpltCallback	2
+../Core/Src/main.c:470:6:BNO055_SysCheck	1
+../Core/Src/main.c:513:6:Error_Handler	1

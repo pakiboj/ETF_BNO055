@@ -162,17 +162,15 @@ int main(void)
 
 	  if(bno055_data_ready == 1 && irq_got == 0){ //GPIO interrupt handler
 		  bno055_data_ready = 0;
-		  HAL_I2C_Mem_Read_DMA(&hi2c1, BNO055_I2C_ADDR_LO<<1,
-							   BNO055_REG_ACC_DATA_X_LSB,
-							   I2C_MEMADD_SIZE_8BIT,
-							   imu_dma_buf, IMU_NUMBER_OF_BYTES);
+
+		  BNO055_ResetInterrupt(&hi2c1);
 		  irq_got = 1; //flags that it got interrupt
 //		  printf("ISR ");
 
 	  }
 
 	  if(i2cdma_ready == 1){ //I2C finished callback handler
-		  BNO055_ResetInterrupt(&hi2c1);
+
 		  i2cdma_ready = 0;
 		  accel_sample_t s = {
 		  	  ((int16_t)((imu_dma_buf[1] << 8) | imu_dma_buf[0])) / 100.0f,
@@ -455,6 +453,10 @@ void I2C_scan(void)
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
     if (GPIO_Pin == BNO055_INT_Pin) {   bno055_data_ready = 1;
+    HAL_I2C_Mem_Read_DMA(&hi2c1, BNO055_I2C_ADDR_LO<<1,
+    							   BNO055_REG_ACC_DATA_X_LSB,
+    							   I2C_MEMADD_SIZE_8BIT,
+    							   imu_dma_buf, IMU_NUMBER_OF_BYTES);
     }
 }
 

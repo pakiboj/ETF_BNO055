@@ -118,7 +118,7 @@
 	  //while (HAL_I2C_GetState(hi2c_device) != HAL_I2C_STATE_READY) {}
 		if (status == HAL_OK)
 		{
-			accel_data[0] = (str[1] << 8) | str[0];      // Turn the MSB and LSB into a signed 16-bit value
+			accel_data[0] = (str[1] << 8) | str[0];
 			accel_data[1] = (str[3] << 8) | str[2];
 			accel_data[2] = (str[5] << 8) | str[4];
 
