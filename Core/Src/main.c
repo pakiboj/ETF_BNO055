@@ -79,8 +79,13 @@ void BNO055_SysCheck(void);
 static accel_sample_t circular_buffer_storage[CIRCULAR_BUFFER_SIZE] = {0};
 
 volatile uint8_t bno055_data_ready = 0;
-volatile uint8_t i2cdma_ready = 0;
+volatile uint8_t i2cdma_ready = 1;
 volatile uint8_t irq_got = 0;
+volatile size_t remain = 0;
+volatile uint8_t int_reset = 0;
+volatile uint8_t readData = 0;
+
+
 
 static circular_buf_t cb;
 static cbuf_handle_t handle_ = &cb;
@@ -160,26 +165,40 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	  if(bno055_data_ready == 1 && irq_got == 0){ //GPIO interrupt handler
+	  if(HAL_I2C_GetState(&hi2c1) == HAL_I2C_STATE_READY && bno055_data_ready == 1){ //GPIO interrupt handler
 		  bno055_data_ready = 0;
-
-		  BNO055_ResetInterrupt(&hi2c1);
-		  irq_got = 1; //flags that it got interrupt
-//		  printf("ISR ");
+		  HAL_I2C_Mem_Read_DMA(&hi2c1, BNO055_I2C_ADDR_LO<<1,
+							   BNO055_REG_ACC_DATA_X_LSB,
+							   I2C_MEMADD_SIZE_8BIT,
+							   imu_dma_buf, IMU_NUMBER_OF_BYTES);
+		  readData = 1;
+		  //irq_got = 1; //flags that it got interrupt
+		  //printf("interrupt \r\n");
 
 	  }
 
-	  if(i2cdma_ready == 1){ //I2C finished callback handler
+//	  if(i2cdma_ready == 1 && irq_got == 1){ //I2C finished callback handler
+//		  BNO055_ResetInterrupt(&hi2c1);
+//		  i2cdma_ready = 0;
+//		  readData = 1;
+//		  irq_got = 0;
+//	  }
 
-		  i2cdma_ready = 0;
+	  if(readData == 1){
 		  accel_sample_t s = {
 		  	  ((int16_t)((imu_dma_buf[1] << 8) | imu_dma_buf[0])) / 100.0f,
 			  ((int16_t)((imu_dma_buf[3] << 8) | imu_dma_buf[2])) / 100.0f,
 			  ((int16_t)((imu_dma_buf[5] << 8) | imu_dma_buf[4])) / 100.0f
 		  	  	  	  	  	  };
 		  circular_buf_put(handle_, s);
-//		  printf("TRANSFER\r\n ");
+
+		  readData = 0;
+		  //printf("data read \r\n");
 	  }
+
+
+//	  remain = circular_buf_size(handle_);
+//	  printf("remain=%u\r\n", (unsigned)remain);
 
 
 	  if(!circular_buf_empty(handle_)&& (HAL_UART_GetState(&huart2) == HAL_UART_STATE_READY)) //sending to UART logic
@@ -189,7 +208,10 @@ int main(void)
 		                     "%.2f %.2f %.2f\r\n",
 		                     data_sem.x, data_sem.y, data_sem.z);
 		  HAL_UART_Transmit_DMA(&huart2,(uint8_t*)tx_buf, len); //send via DMA and forget
+
 	  }
+
+
 
 	  //using PuTTy for capturing readings
 
@@ -311,7 +333,7 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 921600 ;
+  huart2.Init.BaudRate = 921600;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;
@@ -383,7 +405,7 @@ static void MX_DMA_Init(void)
   HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, 1, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel7_IRQn);
   /* DMA2_Channel6_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Channel6_IRQn, 2, 0);
+  HAL_NVIC_SetPriority(DMA2_Channel6_IRQn, 1, 0);
   HAL_NVIC_EnableIRQ(DMA2_Channel6_IRQn);
 
 }
@@ -452,18 +474,19 @@ void I2C_scan(void)
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-    if (GPIO_Pin == BNO055_INT_Pin) {   bno055_data_ready = 1;
-    HAL_I2C_Mem_Read_DMA(&hi2c1, BNO055_I2C_ADDR_LO<<1,
-    							   BNO055_REG_ACC_DATA_X_LSB,
-    							   I2C_MEMADD_SIZE_8BIT,
-    							   imu_dma_buf, IMU_NUMBER_OF_BYTES);
+    if (GPIO_Pin == BNO055_INT_Pin) {
+    	if(HAL_I2C_GetState(&hi2c1) == HAL_I2C_STATE_READY){
+			BNO055_ResetInterrupt(&hi2c1);
+		}
+    	bno055_data_ready = 1;
+    	//i2cdma_ready = 0;
     }
 }
 
 void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
-    if (hi2c == &hi2c1) {  i2cdma_ready = 1;
-    irq_got = 0; //releace interrupt flag
+    if (hi2c == &hi2c1) {
+    	//i2cdma_ready = 1;
     }
 }
 

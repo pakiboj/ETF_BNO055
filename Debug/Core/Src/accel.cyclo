@@ -1,5 +1,5 @@
-../Core/Src/accel.c:43:7:BNO055_Init_I2C	1
-../Core/Src/accel.c:115:7:GetAccelData	2
-../Core/Src/accel.c:136:10:GetAccelChipId	1
-../Core/Src/accel.c:140:10:GetAccelTemp	2
-../Core/Src/accel.c:147:7:BNO055_ResetInterrupt	1
+../Core/Src/accel.c:43:8:BNO055_Init_I2C	1
+../Core/Src/accel.c:115:8:GetAccelData	2
+../Core/Src/accel.c:136:11:GetAccelChipId	1
+../Core/Src/accel.c:140:11:GetAccelTemp	2
+../Core/Src/accel.c:147:8:BNO055_ResetInterrupt	1
